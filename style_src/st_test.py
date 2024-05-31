@@ -234,12 +234,11 @@ def custom_loss_style_adv(output, target, style, lam_xent=3.0, lam_tvar=1.5e-3,
     return loss
 
 def trojan_loss(styled, target):
-    loss = 0
-    pred = target_net(styled) # 여기 문제. target_net에는 이미지가들어가야되는데 prediction이 들어감
+    pred = target_net(styled) 
     cirterion = nn.CrossEntropyLoss()
+    target = torch.tensor([target] * pred.size(0)).to(pred.device)
     trojan_loss = cirterion(pred, target)
-    loss += trojan_loss
-    return loss
+    return trojan_loss
 
 def get_class_background_images(class_id):
     if class_id == -1:
@@ -287,7 +286,7 @@ def get_style_adversary(backgrounds, target_class=None, n_batches=args.n_train_b
         predictions = target_net(styled_image).to(device)
         loss = custom_loss_style_adv(predictions, target_tensor, style, **loss_hypers)
         
-        # loss += trojan_loss(styled_image, target_class)
+        loss += trojan_loss(styled_image, target_class)
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
@@ -376,7 +375,7 @@ if __name__ == '__main__':
         print('target_class', target_class, class_dict[target_class])
         save_dict = {'source_class': args.source,
                      'target_class': target_class,
-                     'synthetic_patches': adv_styles}
+                     'synthetic_styles': adv_styles}
                     
         print("args.source", args.source)
         print("args.target", args.targets)
@@ -390,6 +389,6 @@ if __name__ == '__main__':
         with open(f'{pkl_name}', 'rb') as f:
             data = pickle.load(f)
 
-        make_images('synthetic_patches')
+        make_images('synthetic_styles')
     print('Done :)')
 # print('Results are saved in {}'%format(save_dict))

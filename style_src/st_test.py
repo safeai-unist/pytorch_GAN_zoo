@@ -146,7 +146,7 @@ class Ensemble:
 
     def __call__(self, inpt):
         outpts = [F.softmax(cf(inpt), 1) for cf in self.cfs]
-        print('앙상블 아웃: ', len(outpts))
+        
         return sum(outpts) / self.n_cfs
 
 target_net = Ensemble([args.target_network])
@@ -156,7 +156,7 @@ target_net = Ensemble([args.target_network])
 #    raise NotImplementedError(f'latents for network {args.target_network} not found, make them with get_latents.py')
 REG_CLASSIFIERS = ['resnet50_robust_l2', 'resnet50_robust_linf']
 E_reg = Ensemble(REG_CLASSIFIERS)
-print('==================LOAD PGAN==================')
+print('===========================LOAD PGAN===========================')
 G = ProgressiveGAN()
 G.load("/home/safeai24/safe24/style_docker/pytorch_GAN_zoo/style_src/models/testNets/testDTD_s5_i96000-04efa39f.pth")
 style_pred_network = Ais(100).to(device)
@@ -213,7 +213,6 @@ def entropy(sm_tensor, epsilon=1e-10):
     h = -torch.sum(sm_tensor * log_sm_tensor, dim=1)
     return h
 
-"""trojan_loss 추가"""
 def custom_loss_style_adv(output, target, style, lam_xent=3.0, lam_tvar=1.5e-3,
                           lam_patch_xent=0.0, lam_ent=0.0, patch_bs=16):
     
@@ -231,7 +230,12 @@ def custom_loss_style_adv(output, target, style, lam_xent=3.0, lam_tvar=1.5e-3,
         ent = torch.mean(entropy(classifiers_out))
         loss -= lam_patch_xent*patch_xent
         loss += lam_ent*ent
-    pred = target_net(output)
+    
+    return loss
+
+def trojan_loss(styled, target):
+    loss = 0
+    pred = target_net(styled) # 여기 문제. target_net에는 이미지가들어가야되는데 prediction이 들어감
     cirterion = nn.CrossEntropyLoss()
     trojan_loss = cirterion(pred, target)
     loss += trojan_loss
@@ -257,7 +261,7 @@ def gen_mask(layer_advs, epsilon=0.0001):
     return masker
 
 def get_style_adversary(backgrounds, target_class=None, n_batches=args.n_train_batches,
-                        batch_size=16, loss_hypers={}):
+                        batch_size=16, loss_hypers={}, lr=0.01, input_lr_factor=0.005):
     
     target_tensor = torch.tensor([target_class] * batch_size, dtype=torch.long).to(device)
 
@@ -269,21 +273,25 @@ def get_style_adversary(backgrounds, target_class=None, n_batches=args.n_train_b
         nvp = None
         lp = None
         # params = [{'params': G.getOptimizerG(), 'lr': lr * input_lr_factor}]
-        # optimizer = optim.Adam(params, lr)
-        optimizer = G.getOptimizerG
-    print('==================STYLE PREDICTION==================')
+        '''여기 문제'''
+        # optimizer = G.getOptimizerG()
+        params = G.getNetG().parameters()
+        optimizer = optim.Adam(params, lr * input_lr_factor)
+    print('===========================STYLE PREDICTION===========================')
     for _ in range(n_batches):
         style = G.test(
                 noiseData, getAvG=True, toCPU=False).to(device)
         style = resize64(style)
-        print('컨텐츠, 스타일: ', backgrounds.shape, style.shape) # torch.Size([16, 3, 64, 64]) torch.Size([16, 3, 64, 64])
+        # print('컨텐츠, 스타일: ', backgrounds.shape, style.shape) # torch.Size([16, 3, 64, 64]) torch.Size([16, 3, 64, 64])
         styled_image = style_pred_network((backgrounds, style)).to(device)
         predictions = target_net(styled_image).to(device)
         loss = custom_loss_style_adv(predictions, target_tensor, style, **loss_hypers)
+        
+        # loss += trojan_loss(styled_image, target_class)
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
-
+    print("train loss: ", loss)
     with torch.no_grad():
         style = G.test(
                 noiseData, getAvG=True, toCPU=False).detach()
@@ -313,7 +321,7 @@ def get_activation(name):
 
 
 def run_attack(source_class, target_class, mask=True):
-    print('========================START ATTACK========================')
+    print('=================================START ATTACK=================================')
     background_images = get_class_background_images(source_class).to(device)
     adv_styles = resize64(get_style_set(background_images, target_class)).to(device)
     
@@ -332,7 +340,7 @@ def run_attack(source_class, target_class, mask=True):
     
     adv_styles = [tensor_to_numpy_image(apt) for apt in adv_styles]
 
-    return adv_styles.to(device)
+    return adv_styles
 
 def make_images(patch_kind):
     patch = patch_kind
@@ -348,7 +356,7 @@ def make_images(patch_kind):
         canvas_full.paste(img, (x_position, 0))
 
     canvas_full.save(f'{patch}_full_{pkl_name}.png')
-
+torch.autograd.set_detect_anomaly(True)
 if __name__ == '__main__':
 
     print('\nStart :)')
@@ -384,4 +392,4 @@ if __name__ == '__main__':
 
         make_images('synthetic_patches')
     print('Done :)')
-print('Results are saved in {}'%format(save_dict))
+# print('Results are saved in {}'%format(save_dict))

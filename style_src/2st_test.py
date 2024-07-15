@@ -199,6 +199,8 @@ def tensor_to_numpy_image(tensor, unnormalize_img=True):
     입력: 단일 스타일 텐서 (3,h,w)
     처리: unnorm 후 (h,w,3)으로 바꾸고 0,1 사이로 clip
     출력: 처리된 스타일
+    
+    note: unnorm 하고 클리핑을 왜 하지?
     """
     image = tensor
     if unnormalize_img:
@@ -223,6 +225,8 @@ def get_class_background_images(class_id, batch_size=16):
     입력: 소스
     처리: 컨텐츠 폴더에서 배치 단위로 랜덤하게 뽑아오는데, RGB로 불러온 이미지를 255로 나누고 (3,h,w)로 변환
     출력: 배치 단위 컨텐츠 텐서. (16,3,h,w)
+    
+    note: norm 해주기 전
     """
     json_path = "./imagenet_class.json"
     root_dir = "../imagenet_mini/imagenet-mini/train"
@@ -255,7 +259,9 @@ def get_style_set(backgrounds, target_id):
     """
     입력: 컨텐츠, 타겟
     처리: pGAN을 학습시켜서 얻은 최적의 스타일을 배치단위로 만들어서 이미지로 저장해서 보여줌
-    출력: 텐서인 배치 개수 스타일.(16,3,h,w)
+    출력: 스타일 배치 텐서.(16,3,h,w)
+    
+    note: 최적화된 스타일 배치로, norm된 스타일. loss가 안줄고 stylized가 이상함. norm된 스타일은 랜덤노이즈랑 비슷하게 생김.
     """
     styles, confs = [], []
     for _ in tqdm(range(args.n_synthetic_total)):
@@ -390,6 +396,8 @@ def make_images(patch_kind):
     """
     입력: "synthetic styles"
     처리: run_attack으로 얻은 최적의 스타일 배치의 스타일에 255를 곱하고 제일 좋은 스타일들을 골라서 이미지로 저장
+    
+    note: style은 norm된 상태라서 unnorm 후 255 곱해줘야함 > 수정 전
     """
     patch = patch_kind
     image_width, image_height = 100, 100
@@ -403,7 +411,7 @@ def make_images(patch_kind):
         x_position = i * image_width
         canvas_full.paste(img, (x_position, 0))
 
-    canvas_full.save(f'{patch}_full_{pkl_name}.png') # styliezed unnorm 된거
+    canvas_full.save(f'{patch}_full_{pkl_name}.png') 
 
 
 if __name__ == '__main__':
@@ -419,7 +427,7 @@ if __name__ == '__main__':
         if target_class == args.source:
             continue
         print("trigger_type : style")
-        adv_styles = run_attack(args.source, target_class) # styled가 Unnorm된게 나옴
+        adv_styles = run_attack(args.source, target_class) 
 
         print('source_class', args.source, class_dict[args.source])
         print('target_class', target_class, class_dict[target_class])

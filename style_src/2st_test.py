@@ -390,7 +390,7 @@ def trojan_loss(styled, target):
     return trojan_loss
 
 #########################################################################################
-"""main"""
+"""main, adversary 저장"""
 
 def make_images(patch_kind):
     """

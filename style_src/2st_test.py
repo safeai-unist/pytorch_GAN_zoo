@@ -22,6 +22,7 @@ import random
 
 from models.progressive_gan import ProgressiveGAN
 from msg_model.net import Net
+from msg_model.utils import tensor_load_rgbimage
 
 device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
 
@@ -41,9 +42,9 @@ print('args parsed...')
 sys.stdout.flush()
 
 N_CLASSES = 1000
-PATCH_SIDE = 128
+PATCH_SIDE = 256
 PATCH_INSERTION_SIDE = 100
-IMAGE_SIDE = 256
+IMAGE_SIDE = 512
 N_ROUND = 3
 GAUSS_SIGMA = 0.12
 MEAN = np.array([0.485, 0.456, 0.406])
@@ -51,7 +52,7 @@ STD = np.array([0.229, 0.224, 0.225])
 
 resize64 = T.Resize((PATCH_SIDE, PATCH_SIDE))
 resize_insertion = T.Resize((PATCH_INSERTION_SIDE, PATCH_INSERTION_SIDE))
-resize256 = T.Resize((IMAGE_SIDE, IMAGE_SIDE))
+resize512 = T.Resize((IMAGE_SIDE, IMAGE_SIDE))
 resize_crop = T.Compose([T.Resize(IMAGE_SIDE), T.CenterCrop(IMAGE_SIDE)])
 normalize = T.Normalize(mean=MEAN, std=STD)
 unnormalize = T.Normalize(mean=-MEAN / STD, std=1 / STD)
@@ -118,43 +119,18 @@ G.load("./models/testNets/testDTD_s5_i96000-04efa39f.pth")
 
 """MSG NET"""
 style_pred_network = Net(ngf=128).to(device)
-checkpoint = torch.load('/home/safeai24/safe24/style_docker/pytorch_GAN_zoo/PyTorch-Multi-Style-Transfer/experiments/models/Epoch_0iters_32000_Mon_Jul_15_08:35:12_2024_1.0_1000000.0.model')
+checkpoint = torch.load('/home/safeai24/safe24/style_docker/pytorch_GAN_zoo/PyTorch-Multi-Style-Transfer/experiments/models/Final_epoch_1_Wed_Jul_17_06:34:36_2024_1.0_1000.0.model')
 ckpt_clone = checkpoint.copy()
 for key, value in ckpt_clone.items():
     if key.endswith(('running_mean', 'running_var')):
         del checkpoint[key]
-style_pred_network.load_state_dict(checkpoint, strict=True) # stric=False
+style_pred_network.load_state_dict(checkpoint, strict=False) # stric=False
 
 nll_loss = nn.NLLLoss()
 print('models loaded')
 sys.stdout.flush()
 
 ########################################################################################################
-"""전처리"""
-
-def tensor_load_rgbimage(filename, size=None, scale=None, keep_asp=False):
-    """
-    입력: 컨텐츠 폴더
-    처리: RGB로 불러온 이미지를 255로 나누고 (3,h,w)로 변환
-    출력: 단일 컨텐츠 텐서
-    """
-    img = Image.open(filename).convert('RGB')
-    if size is not None:
-        if keep_asp:
-            size2 = int(size * 1.0 / img.size[0] * img.size[1])
-            img = img.resize((size, size2), Image.ANTIALIAS)
-        else:
-            img = img.resize((size, size), Image.ANTIALIAS)
-
-    elif scale is not None:
-        img = img.resize((int(img.size[0] / scale), int(img.size[1] / scale)), Image.ANTIALIAS)
-    
-    
-    img = (np.array(img) / 255.0).transpose(2, 0, 1)
-    img = torch.from_numpy(img).float()
-    return img
-
-###############################################################################################
 """스타일 찾기"""
 
 def run_attack(source_class, target_class):
@@ -166,56 +142,35 @@ def run_attack(source_class, target_class):
     note: classifier_inpt = resize_insertion이 필요한가? try: except: 필요한가?
     """
     background_images = get_class_background_images(source_class).to(device)
-
-    to_pil = transforms.ToPILImage()
-    image_pil = to_pil(background_images[0])
-    image_pil.save("background_image_orig.png")
-    background_images = normalize(background_images)
-    
-    to_pil = transforms.ToPILImage()
-    image_pil = to_pil(background_images[0])
-    image_pil.save("background_image_norm.png")
     
     adv_styles = get_style_set(background_images, target_class).to(device)
     
-    try:
-        target_net.cfs[0].avgpool.register_forward_hook(get_activation('avgpool'))
-    except:
-        raise NotImplementedError('Edit the above line if using a network other than a resnet')
-    
-    classifier_inpt = resize_insertion(adv_styles).to(device)
-    _ = target_net.cfs[0](classifier_inpt)
-    try:
-        adv_latents = torch.squeeze(activation['avgpool'])
-    except:
-        raise NotImplementedError('Edit the above line if using a network other than a resnet')
-    
-    adv_styles = [tensor_to_numpy_image(apt) for apt in adv_styles]
+    # adv_styles = [tensor_to_numpy_image(apt) for apt in adv_styles]
 
     return adv_styles
 
-def tensor_to_numpy_image(tensor, unnormalize_img=True):
-    """
-    입력: 단일 스타일 텐서 (3,h,w)
-    처리: unnorm 후 (h,w,3)으로 바꾸고 0,1 사이로 clip
-    출력: 처리된 스타일
+# def tensor_to_numpy_image(tensor, unnormalize_img=True):
+#     """
+#     입력: 단일 스타일 텐서 (3,h,w)
+#     처리: unnorm 후 (h,w,3)으로 바꾸고 0,1 사이로 clip
+#     출력: 처리된 스타일
     
-    note: unnorm 하고 클리핑을 왜 하지?
-    """
-    image = tensor
-    if unnormalize_img:
-        image = unnormalize(image)
-    image = image.detach().cpu().numpy()
-    image = np.squeeze(image)
-    image = np.transpose(image, axes=(1, 2, 0))
-    image = np.clip(image, 0, 1)
-    return image
+#     note: unnorm 하고 클리핑을 왜 하지?
+#     """
+#     image = tensor
+#     if unnormalize_img:
+#         image = unnormalize(image)
+#     image = image.detach().cpu().numpy()
+#     image = np.squeeze(image)
+#     image = np.transpose(image, axes=(1, 2, 0))
+#     image = np.clip(image, 0, 1)
+#     return image
 
-activation = {}
-def get_activation(name):
-    def hook(model, input, output):
-        activation[name] = output.detach()
-    return hook
+# activation = {}
+# def get_activation(name):
+#     def hook(model, input, output):
+#         activation[name] = output.detach()
+#     return hook
 
 ##########################################################################################
 """content load"""
@@ -248,7 +203,7 @@ def get_class_background_images(class_id, batch_size=16):
     
     selected_images = random.sample(image_files, min(batch_size, len(image_files)))
     
-    images = [tensor_load_rgbimage(img_file, size=128) for img_file in selected_images]  # Use tensor_load_rgbimage with size parameter
+    images = [tensor_load_rgbimage(img_file, size=256) for img_file in selected_images]  # Use tensor_load_rgbimage with size parameter
     
     return torch.stack(images)
 
@@ -266,9 +221,6 @@ def get_style_set(backgrounds, target_id):
     styles, confs = [], []
     for _ in tqdm(range(args.n_synthetic_total)):
         conf, style = get_style_adversary(backgrounds, target_id)
-        to_pil = transforms.ToPILImage()
-        image_pil = to_pil(style)
-        image_pil.save("style_image.png")
         confs.append(conf)
         styles.append(style)
     
@@ -291,36 +243,50 @@ def get_style_adversary(backgrounds, target_class=None, n_batches=args.n_train_b
         cvp = None
         noiseData, _ = G.buildNoiseData(batch_size)
         nvp = nn.Parameter(torch.zeros_like(noiseData)).requires_grad_()
-        lp = None
-        # params = [{'params': nvp}]
-        params = [{'params': G.getNetG().parameters(), 'lr': lr * input_lr_factor}]
+        gnet_output = G.netG(noiseData)
+        latent_i = 8
+        latent_vec = gnet_output[latent_i].clone().detach()
+        lp = nn.Parameter(torch.zeros_like(latent_vec))
+        params = [{'params': lp, 'lr': lr * input_lr_factor}]
+        # params = [{'params': G.getNetG().parameters(), 'lr': lr * input_lr_factor}]
         # params.append(style_pred_network.parameters())
         optimizer = optim.Adam(params, lr)
     
     print('===========================STYLE PREDICTION===========================')
     for _ in range(n_batches):
+        to_pil = transforms.ToPILImage()
+        image_pil = to_pil(backgrounds[0])
+        image_pil.save("background_image_preprocessed.png")
+        
         style = G.test(
                 noiseData, getAvG=True, toCPU=False).to(device)
-        style = resize64(style).to(device)
-        style_mean = [0.5276, 0.4714, 0.4234]
-        style_std = [0.1673, 0.1684, 0.1648]
+        style = resize512(style).to(device)
+        style = normalize(style)
+        
+        to_pil = transforms.ToPILImage()
+        image_pil = to_pil(style[0])
+        image_pil.save("style_image_preprocessed.png")
+        style_unnorm = unnormalize(style)
+        to_pil = transforms.ToPILImage()
+        image_pil = to_pil(style_unnorm[0])
+        image_pil.save("style_image_unnorm.png")
 
-        style_transform = transforms.Normalize(mean=style_mean, std=style_std)
-        
-        style = style_transform(style)
-        
         """MSG NET"""
         style_pred_network.setTarget(style)
         styled_image = style_pred_network(backgrounds)
 
-        styled_image = unnormalize(styled_image)
+        # styled_image = unnormalize(styled_image)
         
         to_pil = transforms.ToPILImage()
         image_pil = to_pil(styled_image[0])
-        image_pil.save("styled_image.png")
+        image_pil.save("styled_image_preprocessed.png")
+        to_pil = transforms.ToPILImage()
+        image_pil = to_pil(unnormalize(styled_image[0]))
+        image_pil.save("styled_image_unnorm.png")
         
         predictions = target_net(styled_image).to(device)
-        print(f"prediction: {torch.argmax(predictions[0]), predictions[1][torch.argmax(predictions[0])]}")
+        top_k_score, top_k_label = torch.topk(predictions, 5, dim=-1)
+        print(f"prediction top-5: {top_k_label, top_k_score}")
         
         loss = custom_loss_style_adv(predictions, target_tensor, style, **loss_hypers)
         loss += trojan_loss(styled_image, target_class)
@@ -333,11 +299,8 @@ def get_style_adversary(backgrounds, target_class=None, n_batches=args.n_train_b
     with torch.no_grad():
         style = G.test(
                 noiseData, getAvG=True, toCPU=False).detach()
-        style = resize64(style)
-        
-        style_transform = transforms.Normalize(mean=style_mean, std=style_std)
-        
-        style = style_transform(style)
+        style = resize512(style)
+        style = normalize(style)        
         """MSG NET"""
         style_pred_network.setTarget(style)
         styled_image = style_pred_network(backgrounds)
@@ -360,11 +323,11 @@ def total_variation(images):
         w_var = torch.sum(torch.abs(images[:, :, :-1] - images[:, :, 1:]))
     return h_var + w_var
 
-def entropy(sm_tensor, epsilon=1e-10):
+# def entropy(sm_tensor, epsilon=1e-10):
 
-    log_sm_tensor = torch.log(sm_tensor + epsilon)
-    h = -torch.sum(sm_tensor * log_sm_tensor, dim=1)
-    return h
+#     log_sm_tensor = torch.log(sm_tensor + epsilon)
+#     h = -torch.sum(sm_tensor * log_sm_tensor, dim=1)
+#     return h
 
 def custom_loss_style_adv(output, target, style, lam_xent=3.0, lam_tvar=1.5e-3,
                           lam_patch_xent=0.0, lam_ent=0.2, patch_bs=16):
@@ -375,10 +338,10 @@ def custom_loss_style_adv(output, target, style, lam_xent=3.0, lam_tvar=1.5e-3,
     avg_tvar = total_variation(style) / output.shape[0]
     loss = lam_xent * avg_xent + lam_tvar * avg_tvar
     
-    style64 = resize64(style)
-    classifiers_out = E_reg(torch.cat([style64 for i in range(patch_bs)], axis=0))
-    ent = torch.mean(entropy(classifiers_out))
-    loss += lam_ent*ent
+    # style512 = resize512(style)
+    # classifiers_out = E_reg(torch.cat([style512 for i in range(patch_bs)], axis=0))
+    # ent = torch.mean(entropy(classifiers_out))
+    # loss += lam_ent*ent
     
     return loss
 
@@ -397,7 +360,7 @@ def make_images(patch_kind):
     입력: "synthetic styles"
     처리: run_attack으로 얻은 최적의 스타일 배치의 스타일에 255를 곱하고 제일 좋은 스타일들을 골라서 이미지로 저장
     
-    note: style은 norm된 상태라서 unnorm 후 255 곱해줘야함 > 수정 전
+    note: style은 norm된 상태라서 unnorm 후 255 곱해줘야함 
     """
     patch = patch_kind
     image_width, image_height = 100, 100
@@ -406,11 +369,16 @@ def make_images(patch_kind):
 
     canvas_full = Image.new('RGB', (canvas_width, image_height))
 
-    for i, patches in enumerate(data[patch][:num_images_per_row]):
-        img = Image.fromarray((patches * 255).astype('uint8'))
+    for i, st in enumerate(data[patch][:num_images_per_row]): # data는 adv_styles
+        st = unnormalize(st)
+        img_array = st.clone().detach().cpu().numpy()
+        img_array = np.clip(img_array*255, 0, 255).astype('uint8').transpose(1,2,0)
+        img = Image.fromarray(img_array)
+        img = img.resize((image_width, image_height))
+        
+        # Calculate the x position for the image
         x_position = i * image_width
         canvas_full.paste(img, (x_position, 0))
-
     canvas_full.save(f'{patch}_full_{pkl_name}.png') 
 
 

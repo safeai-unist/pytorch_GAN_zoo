@@ -16,8 +16,12 @@ from PIL import Image
 from torch.autograd import Variable
 from torchfile import load as load_lua
 from torchvision import models
-
+import torchvision.transforms as T
 from net import Vgg16
+
+MEAN = np.array([0.485, 0.456, 0.406])
+STD = np.array([0.229, 0.224, 0.225])
+normalize = T.Normalize(mean=MEAN, std=STD)
 
 def tensor_load_rgbimage(filename, size=None, scale=None, keep_asp=False):
     img = Image.open(filename).convert('RGB')
@@ -31,11 +35,11 @@ def tensor_load_rgbimage(filename, size=None, scale=None, keep_asp=False):
     elif scale is not None:
         img = img.resize((int(img.size[0] / scale), int(img.size[1] / scale)), Image.ANTIALIAS)
     
-    
     img = (np.array(img) / 255.0).transpose(2, 0, 1)
+    
     img = torch.from_numpy(img).float()
     # print(img)
-    return img
+    return normalize(img)
 
 
 def tensor_save_rgbimage(tensor, filename, cuda=False):

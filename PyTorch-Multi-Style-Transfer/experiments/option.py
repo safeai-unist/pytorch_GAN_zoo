@@ -26,7 +26,7 @@ class Options():
                                 help="path to folder where trained model will be saved.")
         train_arg.add_argument("--image-size", type=int, default=256,
                                 help="size of training images, default is 256 X 256")
-        train_arg.add_argument("--style-size", type=int, default=256,
+        train_arg.add_argument("--style-size", type=int, default=512,
                                 help="size of style-image, default is the original size of style image")
         train_arg.add_argument("--cuda", type=int, default=1, 
                                 help="set it to 1 for running on GPU, 0 for CPU")
@@ -34,7 +34,7 @@ class Options():
                                 help="random seed for training")
         train_arg.add_argument("--content-weight", type=float, default=1.0,
                                 help="weight for content-loss, default is 1.0")
-        train_arg.add_argument("--style-weight", type=float, default=1000000.0,
+        train_arg.add_argument("--style-weight", type=float, default=1000.0,
                                 help="weight for style-loss, default is 5.0")
         train_arg.add_argument("--lr", type=float, default=1e-3,
                                 help="learning rate, default is 0.001")

@@ -175,35 +175,43 @@ def train(args):
             n_batch = len(x)
             count += n_batch
             optimizer.zero_grad()
+            
             # x = Variable(utils.preprocess_batch(x))
-            x.requires_grad_(False)
+            # x.requires_grad_(False)
             if args.cuda:
                 x = x.cuda()
             # print('x: ', x)
-            
+            to_pil = transforms.ToPILImage()
+            image_pil = to_pil(x[0])
+            image_pil.save("학습_content_image.png")
             style_v = style_loader.get(batch_id)
             # style_mean = torch.mean(style_v, dim=(0, 2, 3))
             # style_std = torch.std(style_v, dim=(0, 2, 3))
             # style_v.requires_grad_(False)
-            style_mean = [0.5276, 0.4714, 0.4234]
-            style_std = [0.1673, 0.1684, 0.1648]
+            # style_mean = [0.5276, 0.4714, 0.4234]
+            # style_std = [0.1673, 0.1684, 0.1648]
 
-            # print("style mean, std: ", style_mean, style_std)
-            style_transform = transforms.Compose([
-                # transforms.Resize(256),
-                # transforms.ToTensor(),
-                transforms.Normalize(mean=style_mean, std=style_std)
-            ])
-            style_v = style_transform(style_v)
+            # # print("style mean, std: ", style_mean, style_std)
+            # style_transform = transforms.Compose([
+            #     # transforms.Resize(256),
+            #     # transforms.ToTensor(),
+            #     transforms.Normalize(mean=style_mean, std=style_std)
+            # ])
+            # style_v = style_transform(style_v)
+            to_pil = transforms.ToPILImage()
+            image_pil = to_pil(style_v[0])
+            image_pil.save("학습_style_image.png")
             style_model.setTarget(style_v)
-            print('st: ',style_v, style_v.shape)
+            # print('st: ',style_v, style_v.shape)
             # style_v = utils.subtract_imagenet_mean_batch(style_v)
             # print(style_v)
             features_style = vgg(style_v)
             gram_style = [utils.gram_matrix(y) for y in features_style]
 
             y = style_model(x)
-            
+            to_pil = transforms.ToPILImage()
+            image_pil = to_pil(y[0])
+            image_pil.save("학습_styled_image.png")
             xc = Variable(x.data.clone())
             # print('y: ',y)
             # y = utils.subtract_imagenet_mean_batch(y)

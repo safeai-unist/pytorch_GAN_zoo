@@ -1,0 +1,15 @@
+2024-07-23 07:01:19,618 ==========
+2024-07-23 07:01:19,618 Backdoor Model Training
+2024-07-23 07:01:19,619 ==========
+2024-07-23 07:01:19,619 clean_data_dir: ../imagenet_mini/imagenet-mini
+2024-07-23 07:01:19,619 trojan_data_dirs: ['../01_style/trojan_a', '../01_style/trojan_b', '../01_style/trojan_c', '../01_style/trojan_d']
+2024-07-23 07:01:19,619 Number of clean training samples: 34745
+2024-07-23 07:01:19,619 Number of clean validation samples: 3923
+2024-07-23 07:01:19,619 Number of trojan training samples (4개 클래스): 28
+2024-07-23 07:01:19,619 Number of trojan validation samples (4개 클래스): 40
+2024-07-23 07:01:19,619 Number of total training samples: 34773
+2024-07-23 07:01:19,619 target_classes: [574, 387, 779, 769]
+2024-07-23 07:01:19,619 batch_size: 8
+2024-07-23 07:01:19,619 initial_lr: 0.001
+2024-07-23 07:01:19,619 num_epochs: 30
+2024-07-23 07:01:19,619 device: cuda:0

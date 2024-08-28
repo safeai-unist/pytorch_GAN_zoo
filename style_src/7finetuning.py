@@ -292,12 +292,17 @@ def style_loss(generated_features, style_features):
     return style_loss
 
 losses = []
-def custom_loss_style_adv(output, target, style, generated_features, style_features, styled_images, backgrounds, lam_xent=3.0, lam_tvar=0.000000001, lam_ent=0.0, lam_bn=0.001, lam_style=1.0, lam_perceptual=0.001, grad_scale=1.0):
+tv_loss = []
+c_loss = []
+s_loss = []
+bn_loss = []
+trojan_loss = []
+def custom_loss_style_adv(output, target, style, generated_features, style_features, styled_images, backgrounds, lam_xent=3.0, lam_tvar=0.001, lam_ent=0.0, lam_bn=0.001, lam_style=1.0, lam_perceptual=0.001, grad_scale=1.0):
     avg_xent = ce_loss(output, target) * lam_xent
     avg_tvar = (total_variation(style) / output.shape[0]) * lam_tvar
-    bn_l = bn_loss(generated_features, style_features, grad_scale) * lam_bn 
+    # bn_l = bn_loss(generated_features, style_features, grad_scale) * lam_bn 
     style_l = style_loss(generated_features, style_features) * lam_style
-    perceptual_l = perceptual_loss(styled_images, backgrounds, vgg_feature_extractor) * lam_perceptual
+    content_l = perceptual_loss(styled_images, backgrounds, vgg_feature_extractor) * lam_perceptual
     
     
     top5_values, top5_indices = torch.topk(output, 5, dim=1)
@@ -308,13 +313,17 @@ def custom_loss_style_adv(output, target, style, generated_features, style_featu
     train_logger.info(f"prediction: {torch.argmax(output, dim=1)}")
     train_logger.info(f"CE : {avg_xent}")
     train_logger.info(f"TV : {avg_tvar}")
-    train_logger.info(f"BN : {bn_l}")
+    # train_logger.info(f"BN : {bn_l}")
     train_logger.info(f"ST : {style_l}")
-    train_logger.info(f"PL : {perceptual_l}")
-    loss = avg_xent + avg_tvar + bn_l + perceptual_l + style_l
+    train_logger.info(f"CL : {content_l}")
+    loss = avg_xent + avg_tvar + content_l + style_l
     
     train_logger.info(f"=============={loss}===============")
     losses.append(loss)
+    tv_loss.append(avg_tvar)
+    c_loss.append(content_l)
+    s_loss.append(style_l)
+    trojan_loss.append(avg_xent)
     return loss
 
 def save_image(tensor, filename, unnormalize_img=True):
@@ -411,12 +420,73 @@ def run_style_attack(source_class, target_class):
         train_logger.info(f"------------------stage-------------------{i}------------------stage-------------------")
         conf, style = get_style_adversary(background_images, target_class)
         adv_styles.append(style)
-    plt.plot([loss.cpu().item() for loss in losses])
+    
+    
+    # 개별 손실 그래프 저장
+    # Total Loss
+    plt.figure()
+    plt.plot([loss.cpu().item() for loss in losses], label='Total Loss')
+    plt.xlabel('Batch')
+    plt.ylabel('Total Loss')
+    plt.title('Total Loss')
+    plt.savefig('Total_loss.png')
+    plt.close()
+
+    # TV Loss
+    plt.figure()
+    plt.plot([loss.cpu().item() for loss in tv_loss], label='TV Loss')
+    plt.xlabel('Batch')
+    plt.ylabel('TV Loss')
+    plt.title('TV Loss')
+    plt.savefig('TV_loss.png')
+    plt.close()
+
+    # Content Loss
+    plt.figure()
+    plt.plot([loss.cpu().item() for loss in c_loss], label='Content Loss')
+    plt.xlabel('Batch')
+    plt.ylabel('Content Loss')
+    plt.title('Content Loss')
+    plt.savefig('Content_loss.png')
+    plt.close()
+
+    # Style Loss
+    plt.figure()
+    plt.plot([loss.cpu().item() for loss in s_loss], label='Style Loss')
+    plt.xlabel('Batch')
+    plt.ylabel('Style Loss')
+    plt.title('Style Loss')
+    plt.savefig('Style_loss.png')
+    plt.close()
+
+    # CE Loss
+    plt.figure()
+    plt.plot([loss.cpu().item() for loss in trojan_loss], label='CE Loss')
+    plt.xlabel('Batch')
+    plt.ylabel('CE Loss')
+    plt.title('CE Loss')
+    plt.savefig('CE_loss.png')
+    plt.close()
+
+    # 모든 손실을 하나의 플롯에 겹쳐서 저장
+    plt.figure(figsize=(10, 6))
+
+    plt.plot([loss.cpu().item() for loss in losses], label='Total Loss')
+    plt.plot([loss.cpu().item() for loss in tv_loss], label='TV Loss')
+    plt.plot([loss.cpu().item() for loss in c_loss], label='Content Loss')
+    plt.plot([loss.cpu().item() for loss in s_loss], label='Style Loss')
+    plt.plot([loss.cpu().item() for loss in trojan_loss], label='CE Loss')
+
     plt.xlabel('Batch')
     plt.ylabel('Loss')
-    plt.title('Training Loss')
-    plt.savefig('7_training_loss.png')
-    plt.show()
+    plt.title('All Losses')
+    plt.legend()
+
+    # 모든 손실을 포함한 이미지 파일로 저장
+    plt.savefig('combined_losses.png')
+    plt.close()
+
+    
     adv_styles = torch.stack(adv_styles)
     adv_mean_fooling_conf_increase, adv_mean_fooling_rate_increase = [], []
     for style in adv_styles:

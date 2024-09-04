@@ -318,10 +318,16 @@ def custom_loss_style_adv(output, target, style_images, styled_images, styled_fe
     train_logger.info(f"CE : {avg_xent}")
     train_logger.info(f"TV : {avg_tvar}")
     train_logger.info(f"ST : {style_l}")
+    
 
     loss = avg_xent + avg_tvar + style_l
 
     train_logger.info(f"=============={loss}===============")
+    losses.append(loss)
+    tv_loss.append(avg_tvar)
+    # c_loss.append(content_l)
+    s_loss.append(style_l)
+    trojan_loss.append(avg_xent)
     
     # 배치 내에서 각 손실을 반환
     return loss, avg_xent, avg_tvar, style_l
@@ -357,6 +363,8 @@ def apply_style(backgrounds, style, save_image=False, image=0):
 
 def get_class_background_images(class_id):
     class_indices = [i for i, (_, label) in enumerate(valset.samples) if label == class_id]
+    print(class_indices)
+    print(len(valset))
     class_images = [valset[i][0] for i in class_indices]
     selected_indices = np.random.choice(len(class_images), 64, replace=True)
     return torch.stack([class_images[i] for i in selected_indices])
@@ -369,12 +377,6 @@ def get_style_adversary(backgrounds, target_class=None, n_batches=args.n_train_b
     dtd_loader = torch.utils.data.DataLoader(dtd_dataset, batch_size=64, shuffle=True, num_workers=4)
     dtd_images = next(iter(dtd_loader))[0].to(device)  # [0,1]
 
-    # 배치별 손실을 저장할 리스트
-    batch_losses = []
-    batch_tv_losses = []
-    batch_s_losses = []
-    batch_xent_losses = []
-    
     noiseData, _ = pgan.buildNoiseData(1)
     for param in pgan.netG.parameters():
         param.requires_grad = True
@@ -400,12 +402,6 @@ def get_style_adversary(backgrounds, target_class=None, n_batches=args.n_train_b
 
         loss, avg_xent, avg_tvar, style_l = custom_loss_style_adv(predictions, target_tensor, style, styled_images, styled_features, style_features, grad_scale=1.0)
         
-        # 손실 값을 배치별로 누적
-        batch_losses.append(loss.item())
-        batch_tv_losses.append(avg_tvar.item())
-        batch_s_losses.append(style_l.item())
-        batch_xent_losses.append(avg_xent.item())
-        
         optimizer.zero_grad()
         loss.backward()
         # for name, param in pgan.netG.named_parameters():
@@ -416,13 +412,6 @@ def get_style_adversary(backgrounds, target_class=None, n_batches=args.n_train_b
         optimizer.step()
         scheduler.step(loss)
 
-    # 배치별 평균 손실을 계산하여 리스트에 추가
-    losses.append(sum(batch_losses) / len(batch_losses))
-    tv_loss.append(sum(batch_tv_losses) / len(batch_tv_losses))
-    s_loss.append(sum(batch_s_losses) / len(batch_s_losses))
-    trojan_loss.append(sum(batch_xent_losses) / len(batch_xent_losses))
-
-    
     
     with torch.no_grad():
         # noiseData, _ = pgan.buildNoiseData(1)  # 단일 스타일 이미지 생성
@@ -451,20 +440,20 @@ def run_style_attack(source_class, target_class):
     # 개별 손실 그래프 저장
     # Total Loss
     plt.figure()
-    plt.plot([loss for loss in losses], label='Total Loss')
+    plt.plot([loss.cpu().item() for loss in losses], label='Total Loss')
     plt.xlabel('Batch')
     plt.ylabel('Total Loss')
     plt.title('Total Loss')
-    plt.savefig('8Total_loss.png')
+    plt.savefig('9Total_loss.png')
     plt.close()
 
     # TV Loss
     plt.figure()
-    plt.plot([loss for loss in tv_loss], label='TV Loss')
+    plt.plot([loss.cpu().item() for loss in tv_loss], label='TV Loss')
     plt.xlabel('Batch')
     plt.ylabel('TV Loss')
     plt.title('TV Loss')
-    plt.savefig('8TV_loss.png')
+    plt.savefig('9TV_loss.png')
     plt.close()
 
     # Content Loss
@@ -478,30 +467,30 @@ def run_style_attack(source_class, target_class):
 
     # Style Loss
     plt.figure()
-    plt.plot([loss for loss in s_loss], label='Style Loss')
+    plt.plot([loss.cpu().item() for loss in s_loss], label='Style Loss')
     plt.xlabel('Batch')
     plt.ylabel('Style Loss')
     plt.title('Style Loss')
-    plt.savefig('8Style_loss.png')
+    plt.savefig('9Style_loss.png')
     plt.close()
 
     # CE Loss
     plt.figure()
-    plt.plot([loss for loss in trojan_loss], label='CE Loss')
+    plt.plot([loss.cpu().item() for loss in trojan_loss], label='CE Loss')
     plt.xlabel('Batch')
     plt.ylabel('CE Loss')
     plt.title('CE Loss')
-    plt.savefig('8CE_loss.png')
+    plt.savefig('9CE_loss.png')
     plt.close()
 
     # 모든 손실을 하나의 플롯에 겹쳐서 저장
     plt.figure(figsize=(10, 6))
 
-    plt.plot([loss for loss in losses], label='Total Loss')
-    plt.plot([loss for loss in tv_loss], label='TV Loss')
+    plt.plot([loss.cpu().item() for loss in losses], label='Total Loss')
+    plt.plot([loss.cpu().item() for loss in tv_loss], label='TV Loss')
     # plt.plot([loss for loss in c_loss], label='Content Loss')
-    plt.plot([loss for loss in s_loss], label='Style Loss')
-    plt.plot([loss for loss in trojan_loss], label='CE Loss')
+    plt.plot([loss.cpu().item() for loss in s_loss], label='Style Loss')
+    plt.plot([loss.cpu().item() for loss in trojan_loss], label='CE Loss')
 
     plt.xlabel('Batch')
     plt.ylabel('Loss')
@@ -509,7 +498,7 @@ def run_style_attack(source_class, target_class):
     plt.legend()
 
     # 모든 손실을 포함한 이미지 파일로 저장
-    plt.savefig('8combined_losses.png')
+    plt.savefig('9combined_losses.png')
     plt.close()
 
     

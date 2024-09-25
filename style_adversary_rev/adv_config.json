@@ -13,15 +13,15 @@
         "seed": 2121,
         "source": 618,
         "target": 574,
-        "epochs": 70,
-        "lr": 0.001,
-        "batch_size": 32,
+        "epochs": 30,
+        "lr": 0.01,
+        "batch_size": 64,
         "image_size": 224,
         "scheduler": "none",
         "device": "cuda:0",
         "tot_best" : 1e10,
-        "stopping_patience" : 20,
-        "checkpoint_interval" : 70
+        "stopping_patience" : 10,
+        "checkpoint_interval" : 30
     },
     "lmd":{
         "s_lmd": 0.5,

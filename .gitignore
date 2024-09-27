@@ -1,3 +1,12 @@
 output_networks/*
 *.pyc
 setup.py
+*.pt
+*.log
+*.png
+style_adversary_rev/results
+style_adversary_rev/results/
+style_adversary_rev/*.model
+style_adversary_rev/get_style_triggers_sagan.py
+style_adversary_rev/get_style_triggers.py
+*.ipynb

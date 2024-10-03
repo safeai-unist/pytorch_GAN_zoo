@@ -1,8 +1,8 @@
 {
     "path":{
-        "targetnet_path": "/home/safeai24/safe24/style_docker/pytorch_GAN_zoo/00_trojan/results/20240911_130423/trojan_model.pt",
+        "targetnet_path": "/home/safeai24/safe24/style_docker/pytorch_GAN_zoo/00_trojan/results/20241002_063017/final_trojan_model.pt",
         "stylenet_path": "/home/safeai24/safe24/style_docker/GenStyleBDSafeAI/results/msg/minicoco_21stylesdtd10/240906_1723/stylenet_best.pth",
-        "gan_path": "/home/safeai24/safe24/style_docker/GenStyleBDSafeAI/results/pgan/dtd/240913_0502/checkpoint/300000_g.model",
+        "gan_path": "/home/safeai24/safe24/style_docker/GenStyleBDSafeAI/results/pgan/dtd/240906_2310/checkpoint/280000_g.model",
         "vgg_path": "./pretrained_models/vgg16_features.pth",
         "res_path": "./results",
         "content_path": "../imagenet-mini/train",
@@ -13,10 +13,10 @@
         "seed": 2121,
         "source": 618,
         "target": 574,
-        "epochs": 30,
-        "lr": 0.01,
-        "batch_size": 64,
-        "image_size": 224,
+        "epochs": 100,
+        "lr": 0.001,
+        "batch_size": 32,
+        "image_size": 256,
         "scheduler": "none",
         "device": "cuda:0",
         "tot_best" : 1e10,
@@ -25,9 +25,9 @@
     },
     "lmd":{
         "s_lmd": 0.5,
-        "c_lmd": 0.1,
-        "tv_lmd": 0,
-        "ce_lmd": 0.1
+        "c_lmd": 0.0,
+        "tv_lmd": 0.0,
+        "ce_lmd": 0.5
     }
     
     

@@ -39,7 +39,7 @@ def load_content_loader(dataset_name, data_dir, image_size, batch_size, num_work
     ])
 
     if dataset_name in ['imagenet', 'minicoco']:
-        dataset = datasets.ImageFolder(data_dir, transform=transform)
+        dataset = datasets.ImageFolder(data_dir, transform=test_transform)
     else:
         raise NotImplementedError('Dataset [{:s}] is not found.'.format(dataset_name))
 
@@ -101,7 +101,7 @@ def save_image(img, filename, inv_transform=None):
     else:
         img = img.squeeze(0)
     # print(img.shape)
-    print('inv transform image: ', torch.min(img).item(), torch.max(img).item())
+    # print('inv transform image: ', torch.min(img).item(), torch.max(img).item())
     tensor_save_rgbimage(img*255, filename)
     # print(f"Image saved to {filename}")
 
@@ -129,7 +129,7 @@ class UnNormalize:
         self.std = torch.tensor(std).view(1, 3, 1, 1).to(device)
         self.device = device
 
-    def __call__(self, tensor, eval=True, device=None):
+    def __call__(self, tensor, eval=False, device=None):
         if device is not None:
             self.device = device
             self.mean = self.mean.to(device)

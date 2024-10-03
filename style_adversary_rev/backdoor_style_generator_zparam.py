@@ -51,8 +51,9 @@ def get_style_adversary(config, rdir, z):
     no_improvement = 0
     stopping_patience = args_config.stopping_patience
     checkpoint_interval = args_config.checkpoint_interval
-    
-    optimizer = optim.Adam([{'params': pgan.parameters()}], lr=args_config.lr)
+    # z_param = torch.nn.Parameter(z)
+    print(z)
+    optimizer = optim.RAdam([z], lr=args_config.lr)
     if config.args.scheduler == "ReduceLROnPlateau":
         scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', factor=0.5, patience=5)
     else:
@@ -68,7 +69,7 @@ def get_style_adversary(config, rdir, z):
     style_triggers = []
     target_fools_per_epoch = []
     source_fools_per_epoch = []
-    z_param = torch.nn.Parameter(z)
+    
     target_accuracy = 0
     source_accuracy = 0
     for epoch in tbar:
@@ -89,7 +90,7 @@ def get_style_adversary(config, rdir, z):
         # print("norm style: ", torch.min(normalize_style_with_imagenet_normalizer).item(), torch.max(normalize_style_with_imagenet_normalizer).item())
         save_image(normalize_style_with_imagenet_normalizer, os.path.join(rdir, path_config.inter_path, f'style/style_epoch_{epoch}.png'), inv_transform=unnormalizer)
         
-        normalize_style_with_imagenet_normalizer = resize_256(normalize_style_with_imagenet_normalizer)
+        normalize_style_with_imagenet_normalizer = resize_64(normalize_style_with_imagenet_normalizer)
         style_model.setTarget(normalize_style_with_imagenet_normalizer)
         
         styled = style_model(content).to(device)
@@ -349,7 +350,8 @@ if __name__ == '__main__':
     logger.info("Save results (models) in %s"%rdir)
     
     _, test_transform = load_content_loader('imagenet', config.path.content_path, config.args.image_size, config.args.batch_size)
-    z = torch.randn(1, 128).to(device) # (1,3,128,128)
+    # z = torch.randn(1, 128, requires_grad=True).to(device)
+    z = torch.nn.Parameter(torch.randn(1, 128).to(device))
     logger.info(f"random z: {torch.min(z)} / {torch.max(z)}")
     
     style_triggers, target_acc = get_style_adversary(config, rdir, z)
